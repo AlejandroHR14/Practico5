@@ -63,13 +63,18 @@ public class Panel extends JPanel {
 
                 if (e.getClickCount() == 2) {
 
-                    idNodoEnPantalla = (String) tabla.getValueAt(tabla.getSelectedRow(), 0);
+                    String tipo = (String) tabla.getValueAt(tabla.getSelectedRow(), 1);
 
-                    path += idNodoEnPantalla +"/";
+                    if (tipo.equalsIgnoreCase("F")){
+                        idNodoEnPantalla = (String) tabla.getValueAt(tabla.getSelectedRow(), 0);
+                        path += idNodoEnPantalla +"/";
+                        lblPath.setText(path);
+                        borrarFilas();
+                        enlistar();
 
-                    lblPath.setText(path);
-                    borrarFilas();
-                    enlistar();
+                    }else {
+                        JOptionPane.showMessageDialog(null,"Chupala");
+                    }
 
                 }
             }
@@ -79,19 +84,23 @@ public class Panel extends JPanel {
         scrollPane.setBounds(50,50,700, 500);
 
         JButton btnCargarArchivo = new JButton("Cargar archivo");
-        btnCargarArchivo.setBounds(30,570,100,20);
+        btnCargarArchivo.setBounds(50,570,150,20);
         btnCargarArchivo.addActionListener(e->{
             JFileChooser chooser = new JFileChooser();
 
             if (chooser.showDialog(null, "Cargar") == JFileChooser.APPROVE_OPTION) {
                 borrarFilas();
                 //path = chooser.getSelectedFile().getPath();
+                String name = chooser.getSelectedFile().getName();
+                long tamano = chooser.getSelectedFile().length();
+                Archivo aux = new Archivo(name,tamano);
+                arbol.insertar(aux,aux.getNombreFisico(),idNodoEnPantalla);
                 enlistar();
             }
         });
 
         JButton btnCrearCarpeta = new JButton("Crear carpeta");
-        btnCrearCarpeta.setBounds(470,570,100,20);
+        btnCrearCarpeta.setBounds(600,570,150,20);
         btnCrearCarpeta.addActionListener(e->{
             String name = JOptionPane.showInputDialog("Escribe el nombre de la carpeta");
             Carpeta aux = new Carpeta(name);
@@ -168,14 +177,31 @@ public class Panel extends JPanel {
                 Archivo aux = (Archivo) lista.obtener(i).getContenido();
                 fila[0] = aux.getNombre();
                 fila[1] = aux.getTipo();
-                fila[2] = String.valueOf(aux.getTamano());
+                fila[2] = aux.getsTamano();
                 fila[3] = aux.getNombreFisico();
                 dt.addRow(fila);
             }else {
+
                 Carpeta aux = (Carpeta) lista.obtener(i).getContenido();
+                Lista<Arbol.Nodo<ArchivoCarpeta>> listaCarpeta = arbol.hijosDelPadre(aux.getNombre());
+                long tamanoTotal = 0;
+
+                for (int j = 0; j < listaCarpeta.tamano(); j++) {
+                    ArchivoCarpeta auxArchivoCarpeta = listaCarpeta.obtener(j).getContenido();
+                    if (auxArchivoCarpeta instanceof Archivo){
+                        Archivo auxArchivo = (Archivo) listaCarpeta.obtener(j).getContenido();
+                        tamanoTotal += auxArchivo.getTamano();
+                    }else {
+                        Carpeta auxCarpeta = (Carpeta) listaCarpeta.obtener(j).getContenido();
+                        tamanoTotal += auxCarpeta.getTamanoTotal();
+                    }
+                }
+
+                aux.setTamanoTotal(tamanoTotal);
+
                 fila[0] = aux.getNombre();
                 fila[1] = "F";
-                fila[2] = "-";
+                fila[2] = Archivo.calcularBytes(aux.getTamanoTotal());
                 fila[3] = "-";
                 dt.addRow(fila);
             }
@@ -197,7 +223,6 @@ public class Panel extends JPanel {
         //logger.info("Persona: "+ arbol.obtener(row).getNombre() +". ELIMINADO");
         //arbol.eliminar(row);
         dt.removeRow(row);
-
 
     }
 
@@ -228,6 +253,4 @@ public class Panel extends JPanel {
     public Dimension getPreferredSize() {
         return tamano;
     }
-
-
 }
