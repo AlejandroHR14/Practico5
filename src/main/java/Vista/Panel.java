@@ -8,6 +8,8 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Panel extends JPanel {
 
@@ -103,10 +105,27 @@ public class Panel extends JPanel {
         btnCrearCarpeta.setBounds(600,570,150,20);
         btnCrearCarpeta.addActionListener(e->{
             String name = JOptionPane.showInputDialog("Escribe el nombre de la carpeta");
-            Carpeta aux = new Carpeta(name);
-            arbol.insertar(aux, name, idNodoEnPantalla);
-            borrarFilas();
-            enlistar();
+            String validar = "^\s*$";
+
+            Pattern patron = Pattern.compile(validar);
+            if (name == null){
+                return;
+            }
+            Matcher m = patron.matcher(name);
+
+
+            //return m.find();
+            if (m.find()){
+                JOptionPane.showMessageDialog(null,"Por favor ingrese un nombre válido");
+            }else {
+                name = name.trim();
+                Carpeta aux = new Carpeta(name);
+                arbol.insertar(aux, name, idNodoEnPantalla);
+                borrarFilas();
+                enlistar();
+            }
+
+
         });
 
 
