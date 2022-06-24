@@ -1,6 +1,9 @@
 package Vista;
 
 import Modelo.*;
+import org.apache.commons.io.FileUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -22,6 +25,10 @@ public class Panel extends JPanel {
     private JTable tabla;
     private DefaultTableModel dt;
 
+    private Configuracion config;
+
+    private Logger logger;
+
     public Panel(Dimension tamanoPanel){
 
         this.tamano = tamanoPanel;
@@ -39,6 +46,10 @@ public class Panel extends JPanel {
 
     public void init(){
         this.setLayout(null);
+
+        config = Configuracion.getInstance(System.getProperty("user.dir")+"\\temp");
+        logger = LogManager.getRootLogger();
+        logger.info("La ruta de archivos temporales predeterminada es: "+config.getRuta());
     }
 
     private void componentes() {
@@ -75,7 +86,43 @@ public class Panel extends JPanel {
                         enlistar();
 
                     }else {
-                        JOptionPane.showMessageDialog(null,"Chupala");
+
+                        String idArchivoSucio = (String) tabla.getValueAt(tabla.getSelectedRow(), 3);
+
+                        char[] arrAux = idArchivoSucio.toCharArray();
+
+                        StringBuilder idArchivo = new StringBuilder();
+
+                        for (int i = arrAux.length-1; i > 0; i--) {
+                            if (arrAux[i] == '\\'){
+                                break;
+                            }
+                            idArchivo.append(arrAux[i]);
+                        }
+
+                        Arbol.Nodo<ArchivoCarpeta> aux = arbol.buscar(idArchivo.reverse().toString());
+
+                        Archivo archivoSeleccionado = (Archivo) aux.getContenido();
+
+                        JFileChooser chooser = new JFileChooser();
+                        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+
+                        if (chooser.showDialog(null, "Seleccionar") == JFileChooser.APPROVE_OPTION) {
+
+                            String path = chooser.getSelectedFile().getPath();
+
+                            File original = new File(archivoSeleccionado.getPathTemp());
+
+                            File copied = new File(path+"\\"+archivoSeleccionado.getNombre()+"."+archivoSeleccionado.getTipo());
+
+                            try {
+                                FileUtils.copyFile(original, copied);
+                                logger.info("Archivo "+"'"+archivoSeleccionado.getNombre()+"."+archivoSeleccionado.getTipo()+"'"+" ha sido copiado correctamente en : "+path+"\\");
+                            } catch (IOException ex) {
+                                throw new RuntimeException(ex);
+                            }
+                        }
+
                     }
 
                 }
@@ -92,11 +139,28 @@ public class Panel extends JPanel {
 
             if (chooser.showDialog(null, "Cargar") == JFileChooser.APPROVE_OPTION) {
                 borrarFilas();
-                //path = chooser.getSelectedFile().getPath();
+
                 String name = chooser.getSelectedFile().getName();
                 long tamano = chooser.getSelectedFile().length();
                 Archivo aux = new Archivo(name,tamano);
+
+                String path = chooser.getSelectedFile().getPath();
+                String rutaTemp = config.getRuta()+"\\"+aux.getNombreFisico();
+
+                File original = new File(path);
+                File copied = new File(rutaTemp);
+
+                aux.setPathTemp(rutaTemp);
+
+                try {
+                    FileUtils.copyFile(original, copied);
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+
                 arbol.insertar(aux,aux.getNombreFisico(),idNodoEnPantalla);
+                logger.info("Archivo "+"'"+name+"'"+" ha sido cargado correctamente!");
+
                 enlistar();
             }
         });
@@ -105,7 +169,7 @@ public class Panel extends JPanel {
         btnCrearCarpeta.setBounds(600,570,150,20);
         btnCrearCarpeta.addActionListener(e->{
             String name = JOptionPane.showInputDialog("Escribe el nombre de la carpeta");
-            String validar = "^\s*$";
+            String validar = "^[0-9a-zA-Z]+$";
 
             Pattern patron = Pattern.compile(validar);
             if (name == null){
@@ -113,21 +177,30 @@ public class Panel extends JPanel {
             }
             Matcher m = patron.matcher(name);
 
-
-            //return m.find();
-            if (m.find()){
+            if (!m.find()){
                 JOptionPane.showMessageDialog(null,"Por favor ingrese un nombre válido");
             }else {
                 name = name.trim();
+                Lista<Arbol.Nodo<ArchivoCarpeta>> listaAux = arbol.buscar(idNodoEnPantalla).getHijos();
+                for (int i = 0; i < listaAux.tamano(); i++) {
+                    ArchivoCarpeta aux = listaAux.obtener(i).getContenido();
+                    if (aux instanceof Carpeta){
+                        Carpeta carpetaAux = (Carpeta) aux;
+                        if (name.equals(carpetaAux.getNombre())){
+                            JOptionPane.showMessageDialog(null,"Ya existe una carpeta con ese nombre");
+                            return;
+                        }
+                    }
+
+                }
                 Carpeta aux = new Carpeta(name);
                 arbol.insertar(aux, name, idNodoEnPantalla);
+                logger.info("Carpeta "+"'"+name+"'"+" ha sido creada correctamente!");
                 borrarFilas();
                 enlistar();
             }
 
-
         });
-
 
         JButton btnVolver = new JButton("<-");
         btnVolver.setBounds(50,20,50,30);
@@ -197,7 +270,7 @@ public class Panel extends JPanel {
                 fila[0] = aux.getNombre();
                 fila[1] = aux.getTipo();
                 fila[2] = aux.getsTamano();
-                fila[3] = aux.getNombreFisico();
+                fila[3] = aux.getPathTemp();
                 dt.addRow(fila);
             }else {
 
@@ -208,10 +281,10 @@ public class Panel extends JPanel {
                 for (int j = 0; j < listaCarpeta.tamano(); j++) {
                     ArchivoCarpeta auxArchivoCarpeta = listaCarpeta.obtener(j).getContenido();
                     if (auxArchivoCarpeta instanceof Archivo){
-                        Archivo auxArchivo = (Archivo) listaCarpeta.obtener(j).getContenido();
+                        Archivo auxArchivo = (Archivo) auxArchivoCarpeta;
                         tamanoTotal += auxArchivo.getTamano();
                     }else {
-                        Carpeta auxCarpeta = (Carpeta) listaCarpeta.obtener(j).getContenido();
+                        Carpeta auxCarpeta = (Carpeta) auxArchivoCarpeta;
                         tamanoTotal += auxCarpeta.getTamanoTotal();
                     }
                 }
@@ -236,36 +309,12 @@ public class Panel extends JPanel {
         }
     }
 
-    public void eliminar() {
-
-        int row = tabla.getSelectedRow();
-        //logger.info("Persona: "+ arbol.obtener(row).getNombre() +". ELIMINADO");
-        //arbol.eliminar(row);
-        dt.removeRow(row);
-
+    public Configuracion getConfig() {
+        return config;
     }
 
-    public void guardarArchivo(){
-
-        try {
-            File archivo = new File(path);
-            FileWriter fw = new FileWriter(archivo, false);
-            BufferedWriter buffer = new BufferedWriter(fw);
-
-            /*for (int i = 0; i < arbol.size(); i++) {
-                //Persona aux = arbol.obtener(i);
-                //String fila = aux.getCI()+" "+aux.getNombre()+" "+aux.getApellido()+" "+aux.getEdad();
-                //buffer.write(fila);
-                //buffer.newLine();
-            }*/
-
-            //buffer.flush();
-            //buffer.close();
-            //logger.info("ARCHIVO GUARDADO CORRECTAMENTE");
-
-        }catch (IOException e){
-            e.printStackTrace();
-        }
+    public void setConfig(Configuracion config) {
+        this.config = config;
     }
 
     @Override

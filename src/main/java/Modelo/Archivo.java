@@ -9,6 +9,7 @@ public class Archivo extends ArchivoCarpeta{
     private String sTamano;
     private long tamano;
     private String nombreFisico;
+    private String pathTemp;
 
     public Archivo(String nombre, long tamano) {
         this.nombre = nombreLimpio(nombre);
@@ -121,6 +122,14 @@ public class Archivo extends ArchivoCarpeta{
 
     public void setNombreFisico(String nombreFisico) {
         this.nombreFisico = nombreFisico;
+    }
+
+    public String getPathTemp() {
+        return pathTemp;
+    }
+
+    public void setPathTemp(String pathTemp) {
+        this.pathTemp = pathTemp;
     }
 
     @Override

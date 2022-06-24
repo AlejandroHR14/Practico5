@@ -107,7 +107,7 @@ public class Arbol<E> {
         }
 
         public Nodo<E> encontrar(String id) {
-            if (this.id.equalsIgnoreCase(id)) {
+            if (this.id.equals(id)) {
                 return this;
             }
             if (this.getContenido() instanceof Carpeta){
